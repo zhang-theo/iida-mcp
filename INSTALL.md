@@ -11,8 +11,8 @@
 
 ```powershell
 idapy -m pip install capstone keystone-engine
-idapy -m pip install "D:\xxx\idalib\python\idapro-0.0.7-py3-none-any.whl"
-idapy "D:\xxx\idalib\python\py-activate-idalib.py" -d "D:\xxx"
+idapy -m pip install "D:\\xxx\\idalib\\python\\idapro-0.0.7-py3-none-any.whl"
+idapy "D:\\xxx\\idalib\\python\\py-activate-idalib.py" -d "D:\\xxx"
 ```
 
 ## 安装 IDA GUI 插件
@@ -27,7 +27,7 @@ iida_core\
 例如：
 
 ```text
-D:\xxx\plugins\
+D:\\xxx\\plugins\\
 ```
 
 复制后打开 IDA，从菜单启动插件：

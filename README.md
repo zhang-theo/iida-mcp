@@ -1,7 +1,5 @@
 # iida-mcp
 
-[中文](README.md) | [English](README_EN.md)
-
 ![iida-mcp capability matrix](arts/iida-mcp-capability-matrix.svg)
 
 `iida-mcp` 是一个 IDA Pro 插件，通过本地 HTTP MCP 服务暴露当前 IDB 的静态分析能力。
@@ -65,8 +63,8 @@ plugins/
 
 ```powershell
 npm install -g .\dist\iida-mcp-arm64-stdio-0.4.1-arm64.1.tgz
-idapy -m pip install "D:\xxx\idalib\python\idapro-0.0.7-py3-none-any.whl"
-idapy "D:\xxx\idalib\python\py-activate-idalib.py" -d "D:\xxx"
+idapy -m pip install "D:\\xxx\\idalib\\python\\idapro-0.0.7-py3-none-any.whl"
+idapy "D:\\xxx\\idalib\\python\\py-activate-idalib.py" -d "D:\\xxx"
 ```
 
 这会安装全局命令 `iida-mcp-stdio`。默认会使用 PATH 中的 `idapy.cmd`/`idapy`，只有需要指定另一套 IDA Python 时，才传 `--idapy`。

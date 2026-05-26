@@ -10,7 +10,6 @@
   "files": [
     "INSTALL.md",
     "README.md",
-    "README_EN.md",
     "ida-plugin.json",
     "iida.py",
     "iida_idalib_worker.py",
