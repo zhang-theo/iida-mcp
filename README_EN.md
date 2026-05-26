@@ -86,6 +86,11 @@ Client-specific field names may vary. The required target is the local HTTP MCP 
 
 Note: the MCP HTTP server currently has no authentication and listens on all network interfaces. Remote clients can call renaming, commenting, type-editing, and patch-writing tools; the plugin also auto-confirms blocking IDA dialogs. Use it only on trusted networks, or restrict access with the local firewall.
 
+Compatibility notes:
+
+- `set_comment` keeps the old behavior and only writes disassembly comments. Use `set_pseudocode_comment` when a Hex-Rays pseudocode comment is needed.
+- `parse_elf` returns a compact metadata/dependency view by default; pass `detail=full` to include sampled sections, dynamic entries, symbols, and relocations.
+
 ## Dependencies
 
 The core plugin uses IDA's bundled IDAPython and the Python standard library.

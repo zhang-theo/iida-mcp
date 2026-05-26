@@ -86,6 +86,11 @@ http://192.168.153.1:13897/mcp
 
 注意：MCP HTTP 服务当前不做鉴权，并监听所有网卡。远程客户端可以调用重命名、注释、类型修改和补丁写入类工具；插件还会自动确认 IDA 的阻塞提示框。只应在可信网络中使用，或通过本机防火墙限制访问来源。
 
+兼容性说明：
+
+- `set_comment` 保持旧行为，只写反汇编注释；需要写入 Hex-Rays 伪代码注释时使用 `set_pseudocode_comment`。
+- `parse_elf` 默认返回精简元数据和依赖信息；传 `detail=full` 才返回 sections、dynamic、symbols、relocations 等采样字段。
+
 ## 依赖
 
 插件主体只依赖 IDA 自带的 IDAPython 和 Python 标准库。

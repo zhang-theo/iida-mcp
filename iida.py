@@ -101,10 +101,6 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
         super().__init__()
         self._server = None
         self._worker = None
-        self._init_thread = None
-        self._cache_thread = None
-        self._stop_event = threading.Event()
-        self._run_id = 0
         self._started = False
 
     def run(self, arg):
@@ -114,9 +110,6 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
             self._cleanup()
             ida_kernwin.msg("[iida-mcp] Stopped\n")
             return
-        self._stop_event.clear()
-        self._run_id += 1
-        run_id = self._run_id
         self._started = True
 
         global _dialog_suppressor
@@ -125,11 +118,7 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
             _dialog_suppressor.hook()
 
         ida_kernwin.msg("[iida-mcp] Activating...\n")
-        self._init_thread = threading.Thread(target=self._init_network, args=(run_id,), daemon=True)
-        self._init_thread.start()
-
-    def _is_current(self, run_id):
-        return self._started and self._run_id == run_id and not self._stop_event.is_set()
+        threading.Thread(target=self._init_network, daemon=True).start()
 
     def _show_status(self):
         if self._server:
@@ -149,37 +138,27 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
         else:
             ida_kernwin.msg("[iida-mcp] Not connected\n")
 
-    def _init_network(self, run_id):
-        election_lock = None
-        server = None
-        worker = None
-        ida_read = None
+    def _init_network(self):
+        _reload_core_modules()
+
+        from iida_core.server import McpServer, try_bind_master, try_election_lock, MCP_PORT
+        from iida_core.worker import Worker
+        from iida_core.registry import FileEntry
+        from iida_core import tools
+        from iida_core.thread_safe import read as ida_read
+        from iida_core.cache import get_cache
+
+        file_info = ida_read(_get_file_info)
+
+        # Pre-build caches (strings, functions, names, imports, exports, segments)
+        cache = get_cache()
+        cache.ensure_built()
+
+        election_lock = try_election_lock()
+        become_master = election_lock is not None and try_bind_master()
         try:
-            _reload_core_modules()
-
-            from iida_core.server import McpServer, try_bind_master, try_election_lock, MCP_PORT
-            from iida_core.worker import Worker
-            from iida_core.registry import FileEntry
-            from iida_core import tools
-            from iida_core.thread_safe import read as ida_read
-            from iida_core.cache import get_cache
-
-            if not self._is_current(run_id):
-                return
-            file_info = ida_read(_get_file_info)
-            if not self._is_current(run_id):
-                return
-
-            # Start networking before cache build, so large IDBs can respond early.
-            cache = get_cache()
-
-            election_lock = try_election_lock()
-            become_master = election_lock is not None and try_bind_master()
-            if not self._is_current(run_id):
-                return
-
             if become_master:
-                server = McpServer(tools, tools.execute_tool, election_lock=election_lock)
+                self._server = McpServer(tools, tools.execute_tool, election_lock=election_lock)
                 entry = FileEntry(
                     fid=file_info['fid'],
                     name=file_info['name'],
@@ -190,62 +169,9 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
                     conn=None,
                     local=True
                 )
-                server.registry.register(entry)
-                server.start()
-                if not self._is_current(run_id):
-                    server.stop()
-                    return
-                self._server = server
-                server = None
+                self._server.registry.register(entry)
+                self._server.start()
                 election_lock = None
-                ida_read(lambda: ida_kernwin.msg(
-                    f"[iida-mcp] Master on :{MCP_PORT} | {file_info['name']} ({file_info['fid']}) | cache building\n"
-                ))
-            else:
-                def on_promoted(worker):
-                    srv = worker.get_master_server()
-                    entries = srv.registry.list_all() if srv else []
-                    names = ', '.join(e.name for e in entries)
-                    if self._is_current(run_id):
-                        ida_read(lambda: ida_kernwin.msg(
-                            f"[iida-mcp] Promoted to Master :{MCP_PORT} | files: {names}\n"
-                        ))
-
-                worker = Worker(file_info, tools.execute_tool, on_promoted=on_promoted)
-                worker.start()
-                if not self._is_current(run_id):
-                    worker.stop()
-                    return
-                self._worker = worker
-                worker = None
-                ida_read(lambda: ida_kernwin.msg(
-                    f"[iida-mcp] Worker | {file_info['name']} ({file_info['fid']}) | cache building\n"
-                ))
-
-            if self._is_current(run_id):
-                self._cache_thread = threading.Thread(
-                    target=self._build_cache_async,
-                    args=(run_id, cache, file_info, MCP_PORT),
-                    daemon=True
-                )
-                self._cache_thread.start()
-        except Exception as ex:
-            if server:
-                try:
-                    server.stop()
-                except:
-                    pass
-            if worker:
-                try:
-                    worker.stop()
-                except:
-                    pass
-            if self._is_current(run_id):
-                try:
-                    ida_read(lambda: ida_kernwin.msg(f"[iida-mcp] Start failed: {ex}\n"))
-                except:
-                    ida_kernwin.msg(f"[iida-mcp] Start failed: {ex}\n")
-                self._cleanup(join_threads=False, expected_run_id=run_id)
         finally:
             if election_lock:
                 try:
@@ -253,30 +179,31 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
                 except:
                     pass
 
+        if become_master:
+            bt = cache.get_build_time()
+            ida_read(lambda: ida_kernwin.msg(
+                f"[iida-mcp] Master on :{MCP_PORT} | {file_info['name']} ({file_info['fid']}) | cache {bt:.1f}s\n"
+            ))
+        else:
+            def on_promoted(worker):
+                srv = worker.get_master_server()
+                entries = srv.registry.list_all() if srv else []
+                names = ', '.join(e.name for e in entries)
+                ida_read(lambda: ida_kernwin.msg(
+                    f"[iida-mcp] Promoted to Master :{MCP_PORT} | files: {names}\n"
+                ))
+
+            self._worker = Worker(file_info, tools.execute_tool, on_promoted=on_promoted)
+            self._worker.start()
+            bt = cache.get_build_time()
+            ida_read(lambda: ida_kernwin.msg(
+                f"[iida-mcp] Worker | {file_info['name']} ({file_info['fid']}) | cache {bt:.1f}s\n"
+            ))
+
     def __del__(self):
         self._cleanup()
 
-    def _build_cache_async(self, run_id, cache, file_info, mcp_port):
-        from iida_core.thread_safe import read as ida_read
-        try:
-            if not self._is_current(run_id):
-                return
-            cache.ensure_built()
-            if not self._is_current(run_id):
-                return
-            bt = cache.get_build_time()
-            ida_read(lambda: ida_kernwin.msg(
-                f"[iida-mcp] Cache ready on :{mcp_port} | {file_info['name']} ({file_info['fid']}) | {bt:.1f}s\n"
-            ))
-        except Exception as ex:
-            if self._is_current(run_id):
-                ida_read(lambda: ida_kernwin.msg(f"[iida-mcp] Cache build failed: {ex}\n"))
-
-    def _cleanup(self, join_threads=True, expected_run_id=None):
-        if expected_run_id is not None and self._run_id != expected_run_id:
-            return
-        self._stop_event.set()
-        self._run_id += 1
+    def _cleanup(self):
         if self._server:
             self._server.stop()
             self._server = None
@@ -289,13 +216,6 @@ class IdaMcpPlugMod(idaapi.plugmod_t):
                 pass
             self._worker.stop()
             self._worker = None
-        if join_threads:
-            cur = threading.current_thread()
-            for t in (self._init_thread, self._cache_thread):
-                if t and t is not cur:
-                    t.join(timeout=2.0)
-        self._init_thread = None
-        self._cache_thread = None
         self._started = False
 
 
