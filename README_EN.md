@@ -11,6 +11,7 @@ This MCP is primarily tested on x86/x86-64 executables and the corresponding IDA
 - 77 MCP tools
 - Verified on IDA 9.3; IDA 8+/9.x API compatibility is kept best-effort
 - Multi-IDA instance routing
+- stdio MCP entrypoint that can launch IDA Pro idalib without manually opening a target first
 - Optional Windows kernel driver support
 - Hotkey: `Alt+Shift+I`
 
@@ -48,11 +49,52 @@ plugins/
 
 ## Usage
 
+### IDA Plugin Mode
+
 1. Open a target file in IDA.
 2. Start the plugin from `Edit > Plugins > iida-mcp`, or press `Alt+Shift+I`.
 3. The first active IDA instance listens on `0.0.0.0:13897`, so it can be reached through loopback or a host network-interface IP; later instances join as Workers.
 4. Trigger the menu item or hotkey again to stop iida-mcp in the current IDA instance.
 5. With one IDB, the `f` parameter can be omitted. With multiple IDBs, call `list_files` and pass the returned file id as `f`.
+
+### stdio Auto-Launch Mode
+
+`stdio_proxy/` is the stdio MCP entrypoint shipped with the plugin for clients such as Codex and Claude Code. It does not run inside the IDA GUI plugin process; it starts with management tools only, and when the client calls `iida_open_file`, it launches IDA Pro `idapro/idalib` in the background and attaches that database to iida's existing multi-IDA master/worker router.
+
+Prepare dependencies:
+
+```powershell
+npm install -g .\dist\iida-mcp-arm64-stdio-0.4.1-arm64.1.tgz
+idapy -m pip install "D:\xxx\idalib\python\idapro-0.0.7-py3-none-any.whl"
+idapy "D:\xxx\idalib\python\py-activate-idalib.py" -d "D:\xxx"
+```
+
+This installs the global `iida-mcp-stdio` command. By default the proxy uses `idapy.cmd`/`idapy` from PATH. Pass `--idapy` only when you need to select another IDA Python.
+
+Codex example:
+
+```toml
+[mcp_servers.iida]
+type = "stdio"
+command = "iida-mcp-stdio"
+args = [
+  "--ready-timeout-sec", "180",
+  "--keepalive-sec", "86400"
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 210
+```
+
+Then call `iida_open_file` with arguments such as:
+
+```json
+{
+  "path": "D:\\xxx\\libTarget.so",
+  "ready_timeout_sec": 180
+}
+```
+
+After the target is registered, the normal iida tools (`list_files`, `get_info`, `parse_elf`, `decompile`, and others) become available through the same MCP connection.
 
 ## MCP Client Configuration
 

@@ -1,0 +1,32 @@
+{
+  "name": "iida-mcp-arm64-stdio",
+  "version": "0.4.1-arm64.1",
+  "description": "iida-mcp with ARM64 support and stdio auto-launch for IDA Pro idalib.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "iida-mcp-stdio": "./stdio_proxy/index.mjs"
+  },
+  "files": [
+    "INSTALL.md",
+    "README.md",
+    "README_EN.md",
+    "ida-plugin.json",
+    "iida.py",
+    "iida_idalib_worker.py",
+    "iida_core/*.py",
+    "iida_core/iida-kdrv-helper.exe",
+    "stdio_proxy/index.mjs",
+    "arts",
+    "driver"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check": "node --check stdio_proxy/index.mjs"
+  }
+}

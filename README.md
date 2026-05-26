@@ -11,6 +11,7 @@
 - 77 个 MCP 工具
 - 已在 IDA 9.3 验证；IDA 8+/9.x API 兼容尽力保持
 - 支持多 IDA 实例自动路由
+- 支持 stdio MCP 自动启动 IDA Pro idalib，无需预先手动打开目标文件
 - 可选 Windows 内核驱动能力
 - 快捷键：`Alt+Shift+I`
 
@@ -48,11 +49,52 @@ plugins/
 
 ## 使用
 
+### IDA 插件方式
+
 1. 在 IDA 中打开目标文件。
 2. 点击 `Edit > Plugins > iida-mcp`，或按 `Alt+Shift+I` 启动。
 3. 第一个启动的 IDA 实例监听 `0.0.0.0:13897`，可通过本机回环地址或主机网卡 IP 访问；后续 IDA 实例自动作为 Worker 接入。
 4. 再次点击菜单项或再次按 `Alt+Shift+I`，关闭当前 IDA 实例中的 iida-mcp 服务/连接。
 5. 单 IDB 时工具参数 `f` 可省略；多 IDB 时先调用 `list_files`，再用返回的 file id 指定 `f`。
+
+### stdio 自动启动方式
+
+`stdio_proxy/` 是随插件发布的 stdio MCP 入口，给 Codex、Claude Code 等客户端使用。它不运行在 IDA GUI 插件进程里；客户端启动后先只暴露管理工具，调用 `iida_open_file` 时再用 IDA Pro 的 `idapro/idalib` 在后台打开目标文件，并接入 iida 原有的多 IDA master/worker 路由。
+
+准备依赖：
+
+```powershell
+npm install -g .\dist\iida-mcp-arm64-stdio-0.4.1-arm64.1.tgz
+idapy -m pip install "D:\xxx\idalib\python\idapro-0.0.7-py3-none-any.whl"
+idapy "D:\xxx\idalib\python\py-activate-idalib.py" -d "D:\xxx"
+```
+
+这会安装全局命令 `iida-mcp-stdio`。默认会使用 PATH 中的 `idapy.cmd`/`idapy`，只有需要指定另一套 IDA Python 时，才传 `--idapy`。
+
+Codex 示例：
+
+```toml
+[mcp_servers.iida]
+type = "stdio"
+command = "iida-mcp-stdio"
+args = [
+  "--ready-timeout-sec", "180",
+  "--keepalive-sec", "86400"
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 210
+```
+
+连接后调用：
+
+```json
+{
+  "path": "D:\\xxx\\libTarget.so",
+  "ready_timeout_sec": 180
+}
+```
+
+即 `iida_open_file` 的参数。目标注册后，`list_files`、`get_info`、`parse_elf`、`decompile` 等原 iida 工具会自动出现在同一个 MCP 连接里。
 
 ## MCP 客户端配置
 

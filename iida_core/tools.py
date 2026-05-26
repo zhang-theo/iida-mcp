@@ -28,6 +28,18 @@ import idc
 from .thread_safe import read, write
 from .cache import get_cache
 
+_RUNTIME_CONTEXT = {}
+
+
+def set_runtime_context(**kwargs):
+    """Provide metadata fallbacks for idalib/headless sessions."""
+    _RUNTIME_CONTEXT.update({k: v for k, v in kwargs.items() if v is not None})
+
+
+def clear_runtime_context():
+    _RUNTIME_CONTEXT.clear()
+
+
 # ============================================================
 # Tool schema definitions (MCP tools/list response)
 # ============================================================
@@ -361,29 +373,75 @@ def _bin_search_ea(result):
     return result
 
 
+def _runtime_input_path():
+    try:
+        path = ida_nalt.get_input_file_path()
+        if path:
+            return path
+    except:
+        pass
+    return _RUNTIME_CONTEXT.get('input_path') or _RUNTIME_CONTEXT.get('path') or ''
+
+
+def _runtime_idb_path():
+    try:
+        path = idaapi.get_path(idaapi.PATH_TYPE_IDB)
+        if path:
+            return path
+    except:
+        pass
+    return _RUNTIME_CONTEXT.get('idb_path') or _RUNTIME_CONTEXT.get('idb') or ''
+
+
+def _runtime_proc_name():
+    try:
+        proc = ida_ida.inf_get_procname()
+        if proc:
+            return proc.strip()
+    except:
+        pass
+    return (_RUNTIME_CONTEXT.get('proc') or _RUNTIME_CONTEXT.get('arch') or '').strip()
+
+
+def _runtime_bits():
+    bits = 0
+    try:
+        if ida_ida.inf_is_64bit():
+            return 64
+        if hasattr(ida_ida, 'inf_is_32bit_exactly'):
+            if ida_ida.inf_is_32bit_exactly():
+                return 32
+        else:
+            bits = 32
+    except:
+        bits = 0
+    try:
+        ctx_bits = int(_RUNTIME_CONTEXT.get('bits') or 0)
+        if ctx_bits in (16, 32, 64):
+            return ctx_bits
+    except:
+        pass
+    return bits if bits else 16
+
+
 def _get_input_path():
-    return ida_nalt.get_input_file_path()
+    return _runtime_input_path()
 
 
 # --- 4.1 Meta & File ---
 
 def _info(args):
     def _impl():
-        input_path = ida_nalt.get_input_file_path()
-        idb_path = ''
-        try:
-            idb_path = idaapi.get_path(idaapi.PATH_TYPE_IDB)
-        except:
-            pass
-        procname = ida_ida.inf_get_procname()
-        is64 = ida_ida.inf_is_64bit()
-        is32 = ida_ida.inf_is_32bit_exactly() if hasattr(ida_ida, 'inf_is_32bit_exactly') else not is64
+        input_path = _runtime_input_path()
+        idb_path = _runtime_idb_path()
+        procname = _runtime_proc_name()
+        bits = _runtime_bits()
         return {
-            'file': os.path.basename(input_path),
+            'file': os.path.basename(input_path) if input_path else '',
             'path': input_path,
             'idb': idb_path,
             'proc': procname,
-            'bits': 64 if is64 else (32 if is32 else 16),
+            'bits': bits,
             'entry': _hex(ida_ida.inf_get_start_ea()),
             'min': _hex(ida_ida.inf_get_min_ea()),
             'max': _hex(ida_ida.inf_get_max_ea()),
@@ -2350,10 +2408,8 @@ def _ks_for_idb():
     except ImportError:
         return None, 'keystone not installed (pip install keystone-engine)'
 
-    is64 = ida_ida.inf_is_64bit()
-    is32 = ida_ida.inf_is_32bit_exactly() if hasattr(ida_ida, 'inf_is_32bit_exactly') else not is64
-    bits = 64 if is64 else (32 if is32 else 16)
-    proc = (ida_ida.inf_get_procname() or '').lower()
+    bits = _runtime_bits()
+    proc = (_runtime_proc_name() or '').lower()
     proc_arch = _normalize_arch_name(proc, bits)
     key = (proc_arch, bits)
     if key in _KS_CACHE:
@@ -3110,7 +3166,7 @@ def _ida_to_runtime(args):
         seg_start = seg.start_ea
         seg_name = ida_segment.get_segm_name(seg)
 
-        path = ida_nalt.get_input_file_path()
+        path = _runtime_input_path()
         image_base = 0
         sections = []
         try:
@@ -3142,7 +3198,7 @@ def _ida_to_runtime(args):
             'seg_name': seg_name,
             'image_base': image_base,
             'sections': sections,
-            'filename': os.path.basename(path)
+            'filename': os.path.basename(path) if path else ''
         }
 
     info = read(_get_seg_and_pe)

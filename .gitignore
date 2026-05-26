@@ -24,6 +24,8 @@ __pycache__/
 *.id3
 *.id4
 *.idb.tmp
+ida-headless-checks/
+.iida-sessions/
 
 # Build intermediates and debug symbols
 *.obj
@@ -45,3 +47,4 @@ ipch/
 # Local release packages
 dist/
 release/
+node_modules/

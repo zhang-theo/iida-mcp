@@ -9,6 +9,7 @@ MFF_WRITE = ida_kernwin.MFF_WRITE
 
 _batch_fn = None  # lazy-init: callable(int) -> old_value, or False if unavailable
 IDA_SYNC_TIMEOUT = 180.0
+_executor = None
 
 
 def _get_batch_fn():
@@ -40,25 +41,51 @@ def _get_batch_fn():
     return _batch_fn
 
 
+def set_executor(executor):
+    """Install an alternate IDA execution backend.
+
+    GUI IDA uses ida_kernwin.execute_sync. idalib has no UI event loop, so
+    headless workers install a small main-thread executor instead.
+    """
+    global _executor
+    _executor = executor
+
+
+def clear_executor():
+    """Remove the alternate IDA execution backend."""
+    global _executor
+    _executor = None
+
+
+def _call_in_batch(fn, *args):
+    batch = _get_batch_fn()
+    prev = None
+    try:
+        if batch:
+            prev = batch(1)
+        return fn(*args)
+    finally:
+        if batch and prev is not None:
+            batch(prev)
+
+
 def run_in_ida(fn, *args, write=False):
     """Execute fn(*args) on IDA's main thread, blocking until done.
     Temporarily enables batch mode to suppress all dialogs."""
+    executor = _executor
+    if executor is not None:
+        return executor.call(lambda: _call_in_batch(fn, *args), write=write)
+
     result = [None]
     exc = [None]
     ev = threading.Event()
 
     def _run():
-        batch = _get_batch_fn()
-        prev = None
         try:
-            if batch:
-                prev = batch(1)
-            result[0] = fn(*args)
+            result[0] = _call_in_batch(fn, *args)
         except Exception as e:
             exc[0] = e
         finally:
-            if batch and prev is not None:
-                batch(prev)
             ev.set()
         return 0
 
