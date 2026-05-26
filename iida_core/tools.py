@@ -70,10 +70,10 @@ TOOLS_SCHEMA = [
     _t("read_file_bytes", "Read raw original file bytes at file offset", {"f": _F, "off": {"type":"integer","description":"file offset"}, "sz": {"type":"integer","description":"size"}}),
     _t("addr_to_fileoff", "Convert IDB address to raw file offset", {"f": _F, "a": _A}),
     _t("parse_pe", "Parse PE header from raw file", {"f": _F}),
-    _t("parse_elf", "Parse ELF header from raw file", {"f": _F}),
+    _t("parse_elf", "Parse ELF headers, symbols, and relocations", {"f": _F}),
     _t("get_cursor", "Get the current IDA UI cursor address", {"f": _F}),
     _t("get_cursor_func", "Get the function under the current IDA UI cursor", {"f": _F}),
-    _t("list_functions", "List functions (paginated, filterable)", {"f": _F, "q": _Q, "off": _OFF, "n": _N}),
+    _t("list_functions", "List functions (paginated, filterable)", {"f": _F, "q": _Q, "off": _OFF, "n": _N, "comments": {"type":"integer","description":"include comments (default 0)","optional":True}}),
     _t("get_func_info", "Get function info: name, start, end, size, frame", {"f": _F, "a": _A}),
     _t("get_func_by_name", "Find a function by exact name", {"f": _F, "name": {"type":"string","description":"function name"}}),
     _t("decompile", "Decompile function to pseudocode", {"f": _F, "a": _A}),
@@ -89,7 +89,7 @@ TOOLS_SCHEMA = [
     _t("get_name", "Get name/label at address", {"f": _F, "a": _A}),
     _t("set_name", "Set name/label at address", {"f": _F, "a": _A, "name": {"type":"string","description":"new name"}}),
     _t("get_comment", "Get comment at address", {"f": _F, "a": _A, "rep": {"type":"integer","description":"1=repeatable","optional":True}}),
-    _t("set_comment", "Set comment at address", {"f": _F, "a": _A, "cmt": {"type":"string","description":"comment text"}, "rep": {"type":"integer","description":"1=repeatable","optional":True}}),
+    _t("set_comment", "Set disassembly and pseudocode comment", {"f": _F, "a": _A, "cmt": {"type":"string","description":"comment text"}, "rep": {"type":"integer","description":"1=repeatable","optional":True}}),
     _t("search_names", "Search all names/labels by substring", {"f": _F, "q": {"type":"string","description":"substring"}, "n": _N}),
     _t("list_globals", "List named non-function globals (paginated, filterable)", {"f": _F, "q": _Q, "off": _OFF, "n": _N}),
     _t("read_global", "Read a named global value", {"f": _F, "name": {"type":"string","description":"global name"}, "sz": {"type":"integer","description":"override byte size","optional":True}}),
@@ -114,12 +114,12 @@ TOOLS_SCHEMA = [
     _t("list_entries", "List entry points", {"f": _F}),
     _t("get_cfg", "Get function control flow graph as basic block nodes and edges", {"f": _F, "a": _A}),
     _t("patch_bytes", "Patch bytes in IDB at address (modifies database)", {"f": _F, "a": _A, "hex": {"type":"string","description":"hex bytes to write"}}),
-    _t("patch_asm", "Assemble one or more instructions with keystone and patch bytes at address", {"f": _F, "a": _A, "asm": {"type":"string","description":"assembly text, e.g. nop or mov rax, 1"}}),
+    _t("patch_asm", "Assemble with keystone and patch IDB bytes", {"f": _F, "a": _A, "asm": {"type":"string","description":"assembly text, e.g. nop or mov x0, #1"}}),
     _t("patch_list", "List all patched bytes in IDB", {"f": _F}),
     _t("bookmark_list", "List all bookmarks", {"f": _F}),
     _t("bookmark_set", "Set bookmark at address", {"f": _F, "a": _A, "desc": {"type":"string","description":"description"}}),
     _t("bookmark_delete", "Delete bookmark at address", {"f": _F, "a": _A}),
-    _t("reanalyze", "Trigger IDA auto-analysis and wait", {"f": _F}),
+    _t("reanalyze", "Report or wait for auto-analysis", {"f": _F, "wait": {"type":"integer","description":"seconds to wait, default 0, max 175","optional":True}}),
     _t("create_function", "Create function at address", {"f": _F, "a": _A, "end": {"type":"string","description":"end addr","optional":True}}),
     _t("delete_function", "Delete function at address", {"f": _F, "a": _A}),
     _t("make_data", "Define data at address", {"f": _F, "a": _A, "sz": {"type":"integer","description":"size"}, "type": {"type":"string","description":"byte/word/dword/qword","optional":True}}),
@@ -139,7 +139,7 @@ TOOLS_SCHEMA = [
     _t("kernel_modules", "List all loaded kernel modules via driver. Returns [[base_hex, size, name, path], ...]"),
     _t("kernel_module_base", "Get kernel module base address and size by name via driver. Returns [base_hex, size]", {"name": {"type":"string","description":"module name, e.g. ntoskrnl or nvlddmkm"}}),
     _t("calc", "Integer calculator. Evaluate arithmetic expression with hex(0x)/dec/oct(0o)/bin(0b). Supports + - * / % ** << >> & | ^ ~. Returns [dec, hex]", {"expr": {"type":"string","description":"expression, e.g. 0xfffff804+0x1000*3"}}),
-    _t("disasm_bytes", "Disassemble raw hex bytes (no IDB needed). Returns [[offset, hex, mnemonic, operands], ...]", {"hex": {"type":"string","description":"hex bytes, e.g. 4889e5 or 48 89 e5"}, "arch": {"type":"string","description":"x86/x64/arm/arm64 (default x64)","optional":True}, "addr": {"type":"string","description":"base address for display (default 0)","optional":True}}),
+    _t("disasm_bytes", "Disassemble raw hex bytes (no IDB needed). Returns [[offset, hex, mnemonic, operands], ...]", {"hex": {"type":"string","description":"hex bytes, e.g. 1f2003d5 or 48 89 e5"}, "arch": {"type":"string","description":"x86/x64/arm/arm64/aarch64/armv8a (default x64)","optional":True}, "addr": {"type":"string","description":"base address for display (default 0)","optional":True}}),
     _t("kernel_read_values", "Read kernel memory and interpret as typed values. Use a for one address or addrs for batch. fmt defaults to p(pointer).", {"a": {"type":"string","description":"single kernel virtual address (hex)","optional":True}, "addrs": {"type":"array","description":"batch kernel virtual addresses [hex_addr, ...]","items":{"type":"string"},"optional":True}, "fmt": {"type":"string","description":"format: p(pointer/u64) d(u32) w(u16) b(u8) s(null-term string) or NNx(raw bytes). e.g. p, ppd, 16x. default p","optional":True}}),
     _t("ida_to_runtime", "Convert IDA virtual address to runtime kernel address. Uses runtime module base from driver + IDA segment info to compute correct mapping per-section.", {"f": _F, "a": _A, "mod": {"type":"string","description":"kernel module name (e.g. nvlddmkm)","optional":True}}),
 ]
@@ -494,58 +494,484 @@ def _elf(args):
     path = read(_get_input_path)
     with open(path, 'rb') as fp:
         ident = fp.read(16)
-        if ident[:4] != b'\x7fELF':
+        if len(ident) < 16 or ident[:4] != b'\x7fELF':
             return {'e': 'not ELF'}
         ei_class = ident[4]  # 1=32, 2=64
         ei_data = ident[5]   # 1=LE, 2=BE
+        if ei_class not in (1, 2):
+            return {'e': f'unsupported ELF class: {ei_class}'}
+        if ei_data not in (1, 2):
+            return {'e': f'unsupported ELF data encoding: {ei_data}'}
         endian = '<' if ei_data == 1 else '>'
         is64 = ei_class == 2
+        ei_version = ident[6]
+        ei_osabi = ident[7]
+        ei_abiversion = ident[8]
 
         if is64:
             hdr = fp.read(48)
+            if len(hdr) < 48:
+                return {'e': 'truncated ELF64 header'}
             etype, machine = pystruct.unpack_from(endian + 'HH', hdr, 0)
             entry = pystruct.unpack_from(endian + 'Q', hdr, 8)[0]
             phoff = pystruct.unpack_from(endian + 'Q', hdr, 16)[0]
             shoff = pystruct.unpack_from(endian + 'Q', hdr, 24)[0]
+            flags = pystruct.unpack_from(endian + 'I', hdr, 32)[0]
+            ehsize = pystruct.unpack_from(endian + 'H', hdr, 36)[0]
+            phentsize = pystruct.unpack_from(endian + 'H', hdr, 38)[0]
             phnum = pystruct.unpack_from(endian + 'H', hdr, 40)[0]
+            shentsize = pystruct.unpack_from(endian + 'H', hdr, 42)[0]
             shnum = pystruct.unpack_from(endian + 'H', hdr, 44)[0]
+            shstrndx = pystruct.unpack_from(endian + 'H', hdr, 46)[0]
         else:
             hdr = fp.read(36)
+            if len(hdr) < 36:
+                return {'e': 'truncated ELF32 header'}
             etype, machine = pystruct.unpack_from(endian + 'HH', hdr, 0)
             entry = pystruct.unpack_from(endian + 'I', hdr, 8)[0]
             phoff = pystruct.unpack_from(endian + 'I', hdr, 12)[0]
             shoff = pystruct.unpack_from(endian + 'I', hdr, 16)[0]
+            flags = pystruct.unpack_from(endian + 'I', hdr, 20)[0]
+            ehsize = pystruct.unpack_from(endian + 'H', hdr, 24)[0]
+            phentsize = pystruct.unpack_from(endian + 'H', hdr, 26)[0]
             phnum = pystruct.unpack_from(endian + 'H', hdr, 28)[0]
-            shnum = pystruct.unpack_from(endian + 'H', hdr, 30)[0]
+            shentsize = pystruct.unpack_from(endian + 'H', hdr, 30)[0]
+            shnum = pystruct.unpack_from(endian + 'H', hdr, 32)[0]
+            shstrndx = pystruct.unpack_from(endian + 'H', hdr, 34)[0]
+
+        file_size = os.path.getsize(path)
+
+        def _read_at(off, size, cap=0x400000):
+            if off < 0 or size <= 0 or off >= file_size:
+                return b''
+            size = min(size, file_size - off, cap)
+            fp.seek(off)
+            return fp.read(size)
+
+        def _cstr(blob, off):
+            if off is None or off < 0 or off >= len(blob):
+                return ''
+            end = blob.find(b'\x00', off)
+            if end < 0:
+                end = len(blob)
+            return blob[off:end].decode('utf-8', errors='replace')
+
+        machine_names = {
+            3: 'x86',
+            8: 'MIPS',
+            20: 'PowerPC',
+            21: 'PowerPC64',
+            40: 'ARM',
+            62: 'x86-64',
+            183: 'AArch64',
+            243: 'RISC-V',
+        }
+        type_names = {
+            0: 'NONE',
+            1: 'REL',
+            2: 'EXEC',
+            3: 'DYN',
+            4: 'CORE',
+        }
+        osabi_names = {
+            0: 'System V',
+            1: 'HP-UX',
+            2: 'NetBSD',
+            3: 'Linux',
+            6: 'Solaris',
+            7: 'AIX',
+            8: 'IRIX',
+            9: 'FreeBSD',
+            12: 'OpenBSD',
+            64: 'ARM EABI',
+            97: 'ARM',
+        }
+        ph_type_names = {
+            0: 'NULL',
+            1: 'LOAD',
+            2: 'DYNAMIC',
+            3: 'INTERP',
+            4: 'NOTE',
+            5: 'SHLIB',
+            6: 'PHDR',
+            7: 'TLS',
+            0x6474e550: 'GNU_EH_FRAME',
+            0x6474e551: 'GNU_STACK',
+            0x6474e552: 'GNU_RELRO',
+            0x6474e553: 'GNU_PROPERTY',
+        }
+        sh_type_names = {
+            0: 'NULL',
+            1: 'PROGBITS',
+            2: 'SYMTAB',
+            3: 'STRTAB',
+            4: 'RELA',
+            5: 'HASH',
+            6: 'DYNAMIC',
+            7: 'NOTE',
+            8: 'NOBITS',
+            9: 'REL',
+            11: 'DYNSYM',
+            14: 'INIT_ARRAY',
+            15: 'FINI_ARRAY',
+            0x6ffffff5: 'GNU_ATTRIBUTES',
+            0x6ffffff6: 'GNU_HASH',
+            0x6fffffff: 'VERSYM',
+            0x6ffffffe: 'VERNEED',
+        }
+        dyn_tag_names = {
+            0: 'NULL',
+            1: 'NEEDED',
+            2: 'PLTRELSZ',
+            3: 'PLTGOT',
+            4: 'HASH',
+            5: 'STRTAB',
+            6: 'SYMTAB',
+            7: 'RELA',
+            8: 'RELASZ',
+            9: 'RELAENT',
+            10: 'STRSZ',
+            11: 'SYMENT',
+            12: 'INIT',
+            13: 'FINI',
+            14: 'SONAME',
+            15: 'RPATH',
+            17: 'REL',
+            18: 'RELSZ',
+            19: 'RELENT',
+            20: 'PLTREL',
+            21: 'DEBUG',
+            23: 'JMPREL',
+            24: 'BIND_NOW',
+            25: 'INIT_ARRAY',
+            26: 'FINI_ARRAY',
+            27: 'INIT_ARRAYSZ',
+            28: 'FINI_ARRAYSZ',
+            29: 'RUNPATH',
+            30: 'FLAGS',
+            0x6ffffef5: 'GNU_HASH',
+            0x6ffffff0: 'VERSYM',
+            0x6ffffffe: 'VERNEED',
+            0x6fffffff: 'VERNEEDNUM',
+            0x6ffffffb: 'FLAGS_1',
+        }
 
         phdrs = []
+        phdr_details = []
         if phoff:
-            fp.seek(phoff)
-            for _ in range(min(phnum, 64)):
+            expected_phent = 56 if is64 else 32
+            ph_ent = phentsize or expected_phent
+            if ph_ent < expected_phent:
+                return {'e': f'bad ELF program header size: {ph_ent}'}
+            for idx in range(min(phnum, 64)):
+                p = _read_at(phoff + idx * ph_ent, ph_ent, cap=ph_ent)
+                if len(p) < expected_phent:
+                    break
                 if is64:
-                    p = fp.read(56)
                     ptype, pflags = pystruct.unpack_from(endian + 'II', p, 0)
-                    poff, pvaddr, pmemsz = pystruct.unpack_from(endian + 'QQQ', p, 8)[:3]
+                    poff, pvaddr, ppaddr, pfilesz, pmemsz, palign = pystruct.unpack_from(endian + 'QQQQQQ', p, 8)
                     phdrs.append([ptype, _hex(pvaddr), pmemsz, pflags])
                 else:
-                    p = fp.read(32)
-                    ptype = pystruct.unpack_from(endian + 'I', p, 0)[0]
-                    poff, pvaddr = pystruct.unpack_from(endian + 'II', p, 4)
-                    pmemsz = pystruct.unpack_from(endian + 'I', p, 20)[0]
-                    pflags = pystruct.unpack_from(endian + 'I', p, 24)[0]
+                    ptype, poff, pvaddr, ppaddr, pfilesz, pmemsz, pflags, palign = pystruct.unpack_from(endian + 'IIIIIIII', p, 0)
                     phdrs.append([ptype, _hex(pvaddr), pmemsz, pflags])
+                phdr_details.append({
+                    'type': ptype,
+                    'type_name': ph_type_names.get(ptype, _hex(ptype)),
+                    'off': poff,
+                    'vaddr': _hex(pvaddr),
+                    'paddr': _hex(ppaddr),
+                    'filesz': pfilesz,
+                    'memsz': pmemsz,
+                    'flags': pflags,
+                    'align': palign,
+                })
+
+        def _vaddr_to_fileoff(vaddr):
+            for p in phdr_details:
+                if p['type'] != 1:
+                    continue
+                start = int(p['vaddr'], 16)
+                filesz = p.get('filesz', 0)
+                if start <= vaddr < start + filesz:
+                    return p['off'] + (vaddr - start)
+            return None
+
+        def _read_vaddr(vaddr, size, cap=0x400000):
+            off = _vaddr_to_fileoff(vaddr)
+            if off is None:
+                return b''
+            return _read_at(off, size, cap=cap)
+
+        sections_raw = []
+        if shoff and shentsize:
+            expected_shent = 64 if is64 else 40
+            if shentsize < expected_shent:
+                return {'e': f'bad ELF section header size: {shentsize}'}
+            for idx in range(min(shnum, 4096)):
+                sh = _read_at(shoff + idx * shentsize, shentsize, cap=shentsize)
+                if len(sh) < expected_shent:
+                    break
+                if is64:
+                    name_off, stype, sflags, saddr, soff, ssize, slink, sinfo, salign, sent = pystruct.unpack_from(endian + 'IIQQQQIIQQ', sh, 0)
+                else:
+                    name_off, stype, sflags, saddr, soff, ssize, slink, sinfo, salign, sent = pystruct.unpack_from(endian + 'IIIIIIIIII', sh, 0)
+                sections_raw.append({
+                    'name_off': name_off,
+                    'type': stype,
+                    'flags': sflags,
+                    'addr': saddr,
+                    'off': soff,
+                    'size': ssize,
+                    'link': slink,
+                    'info': sinfo,
+                    'align': salign,
+                    'entsize': sent,
+                })
+
+        shstr = b''
+        if 0 <= shstrndx < len(sections_raw):
+            s = sections_raw[shstrndx]
+            shstr = _read_at(s['off'], s['size'])
+
+        sections = []
+        section_by_name = {}
+        for idx, s in enumerate(sections_raw):
+            name = _cstr(shstr, s['name_off'])
+            row = {
+                'idx': idx,
+                'name': name,
+                'type': s['type'],
+                'type_name': sh_type_names.get(s['type'], _hex(s['type'])),
+                'addr': _hex(s['addr']),
+                'off': s['off'],
+                'size': s['size'],
+                'flags': s['flags'],
+                'link': s['link'],
+                'info': s['info'],
+                'align': s['align'],
+                'entsize': s['entsize'],
+            }
+            sections.append(row)
+            if name:
+                section_by_name[name] = row
+
+        strtab_cache = {}
+
+        def _section_data(index_or_name):
+            sec = None
+            if isinstance(index_or_name, str):
+                sec = section_by_name.get(index_or_name)
+            elif 0 <= index_or_name < len(sections):
+                sec = sections[index_or_name]
+            if not sec:
+                return b''
+            return _read_at(sec['off'], sec['size'])
+
+        def _strtab(index):
+            if index in strtab_cache:
+                return strtab_cache[index]
+            data = _section_data(index)
+            strtab_cache[index] = data
+            return data
+
+        dynamic_entries = []
+        needed = []
+        soname = ''
+        rpath = ''
+        runpath = ''
+        dynamic_source = ''
+        dynstr = _section_data('.dynstr')
+
+        def _parse_dynamic_data(dyn_data, ent, source):
+            if not dyn_data:
+                return False
+            expected_dynent = 16 if is64 else 8
+            if ent >= expected_dynent:
+                for off in range(0, min(len(dyn_data), 4096 * ent), ent):
+                    if off + expected_dynent > len(dyn_data):
+                        break
+                    if is64:
+                        tag, val = pystruct.unpack_from(endian + 'qQ', dyn_data, off)
+                    else:
+                        tag, val = pystruct.unpack_from(endian + 'iI', dyn_data, off)
+                    name = dyn_tag_names.get(tag, _hex(tag & 0xFFFFFFFFFFFFFFFF))
+                    item = {'tag': tag, 'name': name, 'val': _hex(val), 'source': source}
+                    dynamic_entries.append(item)
+                    if tag == 0:
+                        break
+                return True
+            return False
+
+        dynsec = section_by_name.get('.dynamic')
+        if dynsec:
+            ent = dynsec.get('entsize') or (16 if is64 else 8)
+            if _parse_dynamic_data(_section_data('.dynamic'), ent, '.dynamic'):
+                dynamic_source = '.dynamic'
+
+        if not dynamic_entries:
+            dynph = next((p for p in phdr_details if p['type'] == 2), None)
+            if dynph:
+                dyn_size = dynph.get('filesz') or dynph.get('memsz') or 0
+                dyn_data = _read_at(dynph['off'], dyn_size)
+                if _parse_dynamic_data(dyn_data, 16 if is64 else 8, 'PT_DYNAMIC'):
+                    dynamic_source = 'PT_DYNAMIC'
+
+        if not dynstr:
+            strtab_vaddr = 0
+            strsz = 0
+            for item in dynamic_entries:
+                if item['tag'] == 5:
+                    strtab_vaddr = int(item['val'], 16)
+                elif item['tag'] == 10:
+                    strsz = int(item['val'], 16)
+            if strtab_vaddr and strsz:
+                dynstr = _read_vaddr(strtab_vaddr, strsz)
+
+        for item in dynamic_entries:
+            if item['tag'] in (1, 14, 15, 29):
+                text = _cstr(dynstr, int(item['val'], 16))
+                item['str'] = text
+                if item['tag'] == 1 and text:
+                    needed.append(text)
+                elif item['tag'] == 14:
+                    soname = text
+                elif item['tag'] == 15:
+                    rpath = text
+                elif item['tag'] == 29:
+                    runpath = text
+
+        symbols = []
+
+        def _parse_symbols(section_name, limit=256):
+            sec = section_by_name.get(section_name)
+            if not sec:
+                return None
+            data = _section_data(section_name)
+            strings = _strtab(sec['link'])
+            expected_syment = 24 if is64 else 16
+            ent = sec['entsize'] or expected_syment
+            if ent < expected_syment:
+                return None
+            count = sec['size'] // ent
+            rows = []
+            for idx in range(min(count, limit)):
+                off = idx * ent
+                if off + expected_syment > len(data):
+                    break
+                if is64:
+                    st_name, st_info, st_other, st_shndx, st_value, st_size = pystruct.unpack_from(endian + 'IBBHQQ', data, off)
+                else:
+                    st_name, st_value, st_size, st_info, st_other, st_shndx = pystruct.unpack_from(endian + 'IIIBBH', data, off)
+                bind = st_info >> 4
+                typ = st_info & 0xF
+                sym_name = _cstr(strings, st_name)
+                if not sym_name and st_value == 0 and st_size == 0:
+                    continue
+                rows.append({
+                    'name': sym_name,
+                    'value': _hex(st_value),
+                    'size': st_size,
+                    'bind': bind,
+                    'type': typ,
+                    'shndx': st_shndx,
+                })
+            return {'section': section_name, 'count': count, 'returned': len(rows), 'items': rows[:128]}
+
+        dynsym = _parse_symbols('.dynsym')
+        symtab = _parse_symbols('.symtab')
+        if dynsym:
+            symbols.append(dynsym)
+        if symtab:
+            symbols.append(symtab)
+
+        relocations = []
+        for sec in sections:
+            if sec['type'] not in (4, 9):
+                continue
+            data = _section_data(sec['idx'])
+            expected_relent = (24 if is64 else 12) if sec['type'] == 4 else (16 if is64 else 8)
+            ent = sec['entsize'] or expected_relent
+            if ent < expected_relent:
+                continue
+            count = sec['size'] // ent
+            samples = []
+            for off in range(0, min(len(data), 32 * ent), ent):
+                if off + expected_relent > len(data):
+                    break
+                if is64:
+                    if sec['type'] == 4:
+                        r_offset, r_info, r_addend = pystruct.unpack_from(endian + 'QQq', data, off)
+                    else:
+                        r_offset, r_info = pystruct.unpack_from(endian + 'QQ', data, off)
+                        r_addend = None
+                    sym_index = r_info >> 32
+                    r_type = r_info & 0xFFFFFFFF
+                else:
+                    if sec['type'] == 4:
+                        r_offset, r_info, r_addend = pystruct.unpack_from(endian + 'IIi', data, off)
+                    else:
+                        r_offset, r_info = pystruct.unpack_from(endian + 'II', data, off)
+                        r_addend = None
+                    sym_index = r_info >> 8
+                    r_type = r_info & 0xFF
+                item = {'off': _hex(r_offset), 'type': r_type, 'sym': sym_index}
+                if r_addend is not None:
+                    item['addend'] = r_addend
+                samples.append(item)
+            relocations.append({
+                'section': sec['name'],
+                'type': sec['type_name'],
+                'count': count,
+                'items': samples,
+            })
 
         return {
             'class': ei_class,
+            'class_name': 'ELF64' if is64 else 'ELF32',
+            'data': ei_data,
+            'endian': 'little' if ei_data == 1 else 'big' if ei_data == 2 else 'unknown',
+            'version': ei_version,
+            'osabi': ei_osabi,
+            'osabi_name': osabi_names.get(ei_osabi, str(ei_osabi)),
+            'abiversion': ei_abiversion,
             'machine': machine,
+            'machine_name': machine_names.get(machine, str(machine)),
             'entry': _hex(entry),
             'type': etype,
+            'type_name': type_names.get(etype, str(etype)),
+            'flags': flags,
+            'ehsize': ehsize,
+            'phoff': phoff,
+            'phentsize': phentsize,
+            'phnum': phnum,
             'phdr': phdrs,
-            'shnum': shnum
+            'phdrs': phdr_details,
+            'shoff': shoff,
+            'shentsize': shentsize,
+            'shnum': shnum,
+            'shstrndx': shstrndx,
+            'sections': sections,
+            'dynamic': dynamic_entries,
+            'needed': needed,
+            'soname': soname,
+            'rpath': rpath,
+            'runpath': runpath,
+            'dynamic_source': dynamic_source,
+            'symbols': symbols,
+            'relocations': relocations,
         }
 
 
 # --- 4.3 Functions ---
+
+def _cache_not_ready(cache, timeout=3.0):
+    if cache.is_ready():
+        return None
+    cache.refresh_async()
+    if cache.wait_ready(timeout):
+        return None
+    return {'e': 'cache building'}
+
 
 def _fl(args):
     q = args.get('q', '')
@@ -553,18 +979,21 @@ def _fl(args):
     n = min(args.get('n', 100), 1000)
     if n <= 0:
         return []
+    include_comments = bool(args.get('comments', 0))
     cache = get_cache()
+    not_ready = _cache_not_ready(cache)
+    if not_ready:
+        return not_ready
     data = cache.get_functions(q, off, n)
     eas = [ea for ea, _, _ in data]
     def _get_comments(addrs=eas):
         return {a: (ida_bytes.get_cmt(a, 0) or ida_bytes.get_cmt(a, 1) or '') for a in addrs}
-    cmts = read(_get_comments) if eas else {}
+    cmts = read(_get_comments) if include_comments and eas else {}
     results = []
     for ea, name, sz in data:
         row = [_hex(ea), name, sz]
-        c = cmts.get(ea, '')
-        if c:
-            row.append(c)
+        if include_comments:
+            row.append(cmts.get(ea, ''))
         results.append(row)
     return results
 
@@ -874,13 +1303,54 @@ def _gc(args):
     return read(_impl)
 
 
+def _set_pseudocode_comment(ea, cmt, rep=False):
+    try:
+        import ida_hexrays
+        if not ida_hexrays.init_hexrays_plugin():
+            return False, 'hexrays unavailable'
+
+        cfunc = ida_hexrays.decompile(ea)
+        if not cfunc:
+            return False, 'decompile failed'
+
+        if ea == cfunc.entry_ea:
+            idc.set_func_cmt(ea, cmt, bool(rep))
+            cfunc.refresh_func_ctext()
+            ok = (idc.get_func_cmt(ea, bool(rep)) or '') == cmt
+            return ok, '' if ok else 'function comment not saved'
+
+        eamap = cfunc.get_eamap()
+        if ea not in eamap:
+            return False, 'address not in pseudocode map'
+
+        nearest_ea = eamap[ea][0].ea
+
+        tl = ida_hexrays.treeloc_t()
+        tl.ea = nearest_ea
+        for itp in range(ida_hexrays.ITP_SEMI, ida_hexrays.ITP_COLON):
+            tl.itp = itp
+            cfunc.set_user_cmt(tl, cmt)
+            cfunc.save_user_cmts()
+            cfunc.refresh_func_ctext()
+            if cfunc.get_user_cmt(tl, ida_hexrays.RETRIEVE_ALWAYS) == cmt:
+                return True, ''
+        return False, 'user comment not saved'
+    except Exception as ex:
+        return False, str(ex)
+
+
 def _sc(args):
     ea = _ea(args['a'])
     cmt = args['cmt']
     rep = args.get('rep', 0)
     def _impl():
-        ida_bytes.set_cmt(ea, cmt, bool(rep))
-        return 'ok'
+        disasm = bool(ida_bytes.set_cmt(ea, cmt, bool(rep)))
+        pseudocode, reason = _set_pseudocode_comment(ea, cmt, bool(rep))
+        return {
+            'disasm': disasm,
+            'pseudocode': pseudocode,
+            'pseudocode_error': reason,
+        }
     return write(_impl)
 
 
@@ -890,6 +1360,9 @@ def _an(args):
     if n <= 0:
         return []
     cache = get_cache()
+    not_ready = _cache_not_ready(cache)
+    if not_ready:
+        return not_ready
     data = cache.get_names(q, n)
     return [[_hex(ea), name] for ea, name in data]
 
@@ -1467,6 +1940,9 @@ def _lts(args):
 
 def _segs(args):
     cache = get_cache()
+    not_ready = _cache_not_ready(cache)
+    if not_ready:
+        return not_ready
     data = cache.get_segments()
     return [[_hex(s), _hex(e), name, cls, perm, bits] for s, e, name, cls, perm, bits in data]
 
@@ -1614,6 +2090,9 @@ def _strs(args):
     if n <= 0:
         return []
     cache = get_cache()
+    not_ready = _cache_not_ready(cache)
+    if not_ready:
+        return not_ready
     data = cache.get_strings(q, off, n)
     return [[_hex(ea), s, st] for ea, s, st in data]
 
@@ -1659,12 +2138,18 @@ def _imm(args):
 
 def _imp(args):
     cache = get_cache()
+    not_ready = _cache_not_ready(cache)
+    if not_ready:
+        return not_ready
     data = cache.get_imports()
     return [[mod, name, _hex(ea), ordinal] for mod, name, ea, ordinal in data]
 
 
 def _exp(args):
     cache = get_cache()
+    not_ready = _cache_not_ready(cache)
+    if not_ready:
+        return not_ready
     data = cache.get_exports()
     return [[_hex(ea), name, ordinal] for ea, name, ordinal in data]
 
@@ -1826,36 +2311,69 @@ def _pat(args):
 _KS_CACHE = {}
 
 
+def _normalize_arch_name(arch, metapc_bits=None):
+    text = (arch or '').strip().lower().replace('_', '-')
+    text = text.replace(' ', '')
+    aliases = {
+        'amd64': 'x64',
+        'x86-64': 'x64',
+        'x86_64': 'x64',
+        'metapc64': 'x64',
+        'i386': 'x86',
+        'i686': 'x86',
+        'aarch64': 'arm64',
+        'arm64': 'arm64',
+        'armv8': 'arm64',
+        'armv8a': 'arm64',
+        'armv8-a': 'arm64',
+    }
+    if text in aliases:
+        return aliases[text]
+    if text.startswith('aarch64') or text.startswith('arm64') or text.startswith('armv8'):
+        return 'arm64'
+    if text.startswith('arm'):
+        if metapc_bits == 64:
+            return 'arm64'
+        return 'arm'
+    if text.startswith('metapc') or text.startswith('80'):
+        return 'x64' if metapc_bits == 64 else 'x86'
+    if text.startswith('mips'):
+        return 'mips'
+    if text.startswith('ppc'):
+        return 'ppc'
+    return text
+
+
 def _ks_for_idb():
     try:
         import keystone
     except ImportError:
         return None, 'keystone not installed (pip install keystone-engine)'
 
-    proc = (ida_ida.inf_get_procname() or '').lower()
     is64 = ida_ida.inf_is_64bit()
     is32 = ida_ida.inf_is_32bit_exactly() if hasattr(ida_ida, 'inf_is_32bit_exactly') else not is64
     bits = 64 if is64 else (32 if is32 else 16)
-    key = (proc, bits)
+    proc = (ida_ida.inf_get_procname() or '').lower()
+    proc_arch = _normalize_arch_name(proc, bits)
+    key = (proc_arch, bits)
     if key in _KS_CACHE:
         return _KS_CACHE[key], ''
 
     arch = None
     mode = None
-    if proc.startswith('metapc') or proc.startswith('80'):
+    if proc_arch in ('x86', 'x64'):
         arch = keystone.KS_ARCH_X86
         mode = keystone.KS_MODE_64 if bits == 64 else (keystone.KS_MODE_32 if bits == 32 else keystone.KS_MODE_16)
-    elif proc.startswith('arm'):
-        if bits == 64:
-            arch = keystone.KS_ARCH_ARM64
-            mode = keystone.KS_MODE_LITTLE_ENDIAN
-        else:
-            arch = keystone.KS_ARCH_ARM
-            mode = keystone.KS_MODE_ARM
-    elif proc.startswith('mips'):
+    elif proc_arch == 'arm64':
+        arch = keystone.KS_ARCH_ARM64
+        mode = keystone.KS_MODE_LITTLE_ENDIAN
+    elif proc_arch == 'arm':
+        arch = keystone.KS_ARCH_ARM
+        mode = keystone.KS_MODE_ARM
+    elif proc_arch == 'mips':
         arch = keystone.KS_ARCH_MIPS
         mode = (keystone.KS_MODE_MIPS64 if bits == 64 else keystone.KS_MODE_MIPS32) | keystone.KS_MODE_LITTLE_ENDIAN
-    elif proc.startswith('ppc'):
+    elif proc_arch == 'ppc':
         arch = keystone.KS_ARCH_PPC
         mode = (keystone.KS_MODE_PPC64 if bits == 64 else keystone.KS_MODE_PPC32) | keystone.KS_MODE_BIG_ENDIAN
 
@@ -1951,9 +2469,18 @@ def _bmd(args):
 # --- 4.13 Analysis ---
 
 def _aa(args):
+    wait_sec = int(args.get('wait', 0))
     def _impl():
-        ida_auto.auto_wait()
-        return 'ok'
+        if wait_sec <= 0:
+            return {'ok': bool(ida_auto.auto_is_ok()), 'state': int(ida_auto.get_auto_state())}
+        import time
+        deadline = time.time() + min(wait_sec, 175)
+        while time.time() < deadline:
+            if ida_auto.auto_is_ok():
+                return {'ok': True, 'state': int(ida_auto.get_auto_state())}
+            ida_auto.auto_make_step(ida_ida.inf_get_min_ea(), ida_ida.inf_get_max_ea())
+            time.sleep(0.05)
+        return {'ok': False, 'state': int(ida_auto.get_auto_state()), 'e': 'auto-analysis busy'}
     return write(_impl)
 
 
@@ -2379,12 +2906,26 @@ def _batch_set_names(args):
 def _batch_set_comments(args):
     entries = args['comments']
     def _impl():
+        disasm_ok = 0
+        pseudo_ok = 0
+        pseudo_fail = []
         for item in entries:
             ea = _ea(item[0])
             text = item[1]
             rep = bool(item[2]) if len(item) > 2 else False
-            ida_bytes.set_cmt(ea, text, rep)
-        return {'ok': len(entries)}
+            if ida_bytes.set_cmt(ea, text, rep):
+                disasm_ok += 1
+            ok, reason = _set_pseudocode_comment(ea, text, rep)
+            if ok:
+                pseudo_ok += 1
+            elif reason:
+                pseudo_fail.append([_hex(ea), reason])
+        return {
+            'ok': disasm_ok,
+            'fail': len(entries) - disasm_ok,
+            'pseudocode_ok': pseudo_ok,
+            'pseudocode_fail': pseudo_fail[:16],
+        }
     return write(_impl)
 
 
@@ -2424,6 +2965,34 @@ def _batch_decompile(args):
                 results.append([_hex(ea), None])
         return results
     return read(_impl)
+
+
+def _batch(args):
+    default_f = args.get('f')
+    ops = args.get('ops') or []
+    if not isinstance(ops, list):
+        return {'e': 'ops must be a list'}
+
+    results = []
+    for op in ops:
+        if not isinstance(op, (list, tuple)) or len(op) != 2:
+            results.append({'e': 'bad batch op; expected [tool_name, args]'})
+            continue
+        name, subargs = op
+        if not isinstance(name, str) or not name:
+            results.append({'e': 'bad batch op name'})
+            continue
+        if name == 'batch':
+            results.append({'e': 'nested batch is not supported'})
+            continue
+        if not isinstance(subargs, dict):
+            results.append({'e': f'bad args for {name}; expected object'})
+            continue
+        merged = dict(subargs)
+        if default_f and 'f' not in merged:
+            merged['f'] = default_f
+        results.append([name, execute_tool(name, merged)])
+    return results
 
 
 def _get_func_by_addr(args):
@@ -2631,17 +3200,17 @@ def _disasm_bytes(args):
         return {'e': 'capstone not installed (pip install capstone)'}
 
     raw = bytes.fromhex(args['hex'].replace(' ', ''))
-    arch_str = args.get('arch', 'x64').lower()
+    arch_str = _normalize_arch_name(args.get('arch', 'x64'))
     base = _ea(args['addr']) if 'addr' in args else 0
 
     arch_map = {
         'x86':   (capstone.CS_ARCH_X86, capstone.CS_MODE_32),
         'x64':   (capstone.CS_ARCH_X86, capstone.CS_MODE_64),
         'arm':   (capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM),
-        'arm64': (capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM),
+        'arm64': (capstone.CS_ARCH_ARM64, getattr(capstone, 'CS_MODE_LITTLE_ENDIAN', 0)),
     }
     if arch_str not in arch_map:
-        return {'e': f'unknown arch: {arch_str}, use x86/x64/arm/arm64'}
+        return {'e': f'unknown arch: {arch_str}, use x86/x64/arm/arm64/aarch64/armv8a'}
 
     cs_arch, cs_mode = arch_map[arch_str]
     md = capstone.Cs(cs_arch, cs_mode)
@@ -2723,6 +3292,7 @@ DISPATCH = {
     'delete_frame_var': _dfv,
     'rename_frame_var': _rfv,
     'retype_frame_var': _tfv,
+    'batch': _batch,
     'call_tree': _ctree,
     'callers_tree': _ctreet,
     'get_func_by_addr': _get_func_by_addr,
@@ -2753,10 +3323,9 @@ def execute_tool(tool, args):
     try:
         result = fn(args)
         if tool in _CACHE_INVALIDATING:
-            import threading
             cache = get_cache()
             cache.invalidate()
-            threading.Thread(target=cache.ensure_built, daemon=True).start()
+            cache.refresh_async()
         return result
     except Exception as ex:
         return {'e': str(ex)}

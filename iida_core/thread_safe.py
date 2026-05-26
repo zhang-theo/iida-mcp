@@ -8,7 +8,7 @@ MFF_READ = ida_kernwin.MFF_READ
 MFF_WRITE = ida_kernwin.MFF_WRITE
 
 _batch_fn = None  # lazy-init: callable(int) -> old_value, or False if unavailable
-IDA_SYNC_TIMEOUT = 60.0
+IDA_SYNC_TIMEOUT = 180.0
 
 
 def _get_batch_fn():
